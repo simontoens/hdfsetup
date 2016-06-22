@@ -1,17 +1,31 @@
 #!/usr/bin/python
 
-import amitools.tools.xdftool as xdftool
+"""
+This code mostly wraps xdftool and chains xdftool commands.
+xdftool must be property installed.
+See http://lallafa.de/blog/amiga-projects/amitools/xdftool
+"""
+
 import os
 import shutil
 import sys
 import tempfile
 
 def unpack(sourcefile, destdir):
-    """sourcefile may be a file or a directory"""
+    """Unpacks the specified adf into the given destdir.
+
+       Arguments:
+       sourcefile -- adf to unpack, or directory containing adfs to unpack
+       destdir --  the directory to unpack into
+
+    """
+    assert os.path.exists(sourcefile), "sourcefile must exist"
+    assert os.path.isdir(destdir), " destdir must be a directory"
     for file in files(sourcefile):
         xdftool([file, "unpack", destdir])
 
 def list(path):
+    """Runs xdftool's list command and returns the output."""
     xdftool([path, "list"])
 
 def create_adf(filename, destdir):
@@ -90,7 +104,7 @@ if __name__ == "__main__":
     if os.path.exists(tempdir):
         shutil.rmtree(tempdir)
     os.mkdir(tempdir)
-    
+
     build_c_dir(cadf, tempdir)
     add_startup_sequence('echo "This is a an HDF"', tempdir)
     pack_hdf(tempdir, desthdf)
