@@ -96,10 +96,12 @@ class t_dir:
         shutil.rmtree(self.tempdir)
     
 if __name__ == "__main__":
-    # setup
-    cadf = "cadf.adf"; # path to adf with a c dir that has common comamnds
+    import config
+    assert os.path.isfile(config.cadf), "config.cadf must be a valid file"
+    assert os.path.isdir(config.adfdir), "config.adfdir must be a directory"
+    assert config.desthdf is not None, "config.desthdf must be set"
+
     tempdir = "/tmp/hdfmk"
-    desthdf = "./test.hdf"
     
     if os.path.exists(tempdir):
         shutil.rmtree(tempdir)
