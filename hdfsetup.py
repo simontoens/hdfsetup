@@ -12,21 +12,33 @@ import sys
 import tempfile
 
 def unpack(sourcefile, destdir):
-    """Unpacks the specified adf into the given destdir.
+    """Unpacks the specified volume(s) into the given destdir.
 
        Arguments:
-       sourcefile -- adf to unpack, or directory containing adfs to unpack
+       sourcefile -- volume to unpack, or directory containing volumes to unpack
        destdir --  the directory to unpack into
+
+       Returns the abs path to each unpacked volume.
 
     """
     assert os.path.exists(sourcefile), "sourcefile must exist"
     assert os.path.isdir(destdir), " destdir must be a directory"
+    root_dirs = []
     for file in files(sourcefile):
-        xdftool([file, "unpack", destdir])
+        volumename = get_volumename(file)
+        xdftool([file, "unpack", destdir], quiet=True)
+        root_dir = os.path.join(destdir, volumename)
+        assert os.path.isdir(root_dir)
+        root_dirs.append(root_dir)
+    return root_dirs if os.path.isdir(sourcefile) else root_dirs[0]
 
-def list(path):
-    """Runs xdftool's list command and returns the output."""
-    xdftool([path, "list"])
+def list(volumepath, quiet=False):
+    """Runs xdftool's list command, returns the output."""
+    return xdftool([volumepath, "list"], quiet)
+
+def get_volumename(volumepath):
+    output = list(volumepath, quiet=True)
+    return output.split("VOLUME")[0].strip()
 
 def create_adf(filename, destdir):
     imagepath = os.path.join(destdir, filename)
@@ -45,7 +57,7 @@ def pack_hdf(srcdir, destimage):
 
 def files(sourcefile):
     return \
-        ['"%s"' % os.path.join(sourcefile, f) \
+        [os.path.join(sourcefile, f) \
         for f in os.listdir(sourcefile) \
         if f.lower().endswith(".adf")] \
         if os.path.isdir(sourcefile) else [sourcefile]
@@ -78,15 +90,19 @@ def getdirectory(dirpath):
         if os.path.isdir(abspath):
             return abspath
 
-def xdftool(args):
-    cmd = 'xdftool ' + " ".join([str(a) for a in args])
-    status = os.system(cmd)
-    print cmd
-    if status == 0:
-        print "...Ok"
-    else:
-        print "...Failed, aborting"
+def xdftool(args, quiet=False):
+    import subprocess
+    cmd = ["xdftool"] + [str(a) for a in args]
+    if not quiet:
+        print cmd
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    output = p.communicate()[0]
+    error = p.poll() != 0
+    if not quiet or error:
+        print output
+    if error:
         sys.exit(1)
+    return output
 
 class t_dir:
     def __enter__(self):
@@ -102,12 +118,16 @@ if __name__ == "__main__":
     assert config.desthdf is not None, "config.desthdf must be set"
 
     tempdir = "/tmp/hdfmk"
-    
+
     if os.path.exists(tempdir):
         shutil.rmtree(tempdir)
     os.mkdir(tempdir)
 
-    build_c_dir(cadf, tempdir)
-    add_startup_sequence('echo "This is a an HDF"', tempdir)
-    pack_hdf(tempdir, desthdf)
-    list(desthdf)
+    dirs = unpack(config.adfdir, tempdir)
+    
+    print "\n".join(dirs)
+
+    #build_c_dir(config.cadf, tempdir)
+    #add_startup_sequence('echo "This is a an HDF"', tempdir)
+    #pack_hdf(tempdir, config.desthdf)
+    #list(config.desthdf)
