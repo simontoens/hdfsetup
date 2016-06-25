@@ -52,8 +52,8 @@ def create_hdf(filename, size_mb, destdir):
     xdftool([imagepath, "create", "format", diskname.capitalize(), "size=%sMi" % size_mb, "+", "boot", "install"])
     return imagepath
 
-def pack_hdf(srcdir, destimage):
-    xdftool([destimage, "pack", srcdir, "size=10Mi"])
+def pack_hdf(srcdir, destimage, sizeMb):
+    xdftool([destimage, "pack", srcdir, "size=%iMi" % sizeMb])
 
 def files(sourcefile):
     return \
@@ -75,7 +75,7 @@ def add_startup_sequence(content, destdir):
     sdir = safe_mkdir("s", destdir)
     seq = os.path.join(sdir, "startup-sequence")
     with open(seq, "w") as seq_file:
-        seq_file.write("%s\n" % content)
+        seq_file.write(content)
 
 def safe_mkdir(dirname, destdir):
     destdir = os.path.join(destdir, dirname)
@@ -104,18 +104,54 @@ def xdftool(args, quiet=False):
         sys.exit(1)
     return output
 
+def join_mkdir(path, dir):
+    p = os.path.join(path, dir)
+    if (not os.path.exists(p)):
+        os.mkdir(p)
+    return p
+
 class t_dir:
     def __enter__(self):
         self.tempdir = tempfile.mkdtemp("hdfsetup")
         return self.tempdir
     def __exit__(self, type, value, traceback):
         shutil.rmtree(self.tempdir)
+
+class StartupSequenceBuilder:
+    def __init__(self):
+        self.lines = []
+        
+    def assign(self, src, dest):
+        if not src.endswith(":"):
+            src = "%s:" % src
+        if not dest.startswith("dh0:"):
+            dest = "dh0:%s" % dest
+        if " " in src:
+            src = '"%s"' % src
+        if " " in dest:
+            dest = '"%s"' % dest
+        self.lines.append("assign %s %s" % (src, dest))
+
+    def echo(self, message, extraLine=True):
+        self.lines.append('echo "%s"' % message)
+        if extraLine:
+            self.lines.append('echo ""')
+
+    def addLine(self, line):
+        self.lines.append("%s\n" % line)
+
+    def build(self):
+        return "%s\n" % str(self)
+
+    def __str__(self):
+        return "\n".join(self.lines)
     
 if __name__ == "__main__":
     import config
     assert os.path.isfile(config.cadf), "config.cadf must be a valid file"
     assert os.path.isdir(config.adfdir), "config.adfdir must be a directory"
     assert config.desthdf is not None, "config.desthdf must be set"
+    assert not os.path.isfile(config.desthdf),  "config.desthdf exists [%s]" % config.desthdf
 
     tempdir = "/tmp/hdfmk"
 
@@ -123,11 +159,19 @@ if __name__ == "__main__":
         shutil.rmtree(tempdir)
     os.mkdir(tempdir)
 
-    dirs = unpack(config.adfdir, tempdir)
-    
-    print "\n".join(dirs)
+    # name of dir adf(s) are in
+    unpack_root = os.path.split(config.adfdir)[1]
 
-    #build_c_dir(config.cadf, tempdir)
-    #add_startup_sequence('echo "This is a an HDF"', tempdir)
-    #pack_hdf(tempdir, config.desthdf)
-    #list(config.desthdf)
+    volume_dirs = unpack(config.adfdir, join_mkdir(tempdir, unpack_root))
+
+    sb = StartupSequenceBuilder()
+    for vdir in volume_dirs:
+        src = os.path.split(vdir)[1]
+        dest = os.path.join(unpack_root, src)
+        sb.assign(src, dest)
+    sb.addLine('cd "monkey2 disk 1:"')
+    #sb.addLine('monkey2')
+
+    add_startup_sequence(sb.build(), tempdir)
+    build_c_dir(config.cadf, tempdir)
+    pack_hdf(tempdir, config.desthdf, 20)
