@@ -1,4 +1,4 @@
-Example usage of the excellent [amitools](https://github.com/cnvogelg/amitools)'s xdftool for generating Amiga hard drive files with content.
+Example usage of the excellent [amitools](https://github.com/cnvogelg/amitools)'s xdftool for generating a self-booting Amiga hard drive file with content from adfs.
 
 Tested with:
 - Monkey Island 2: LeChucks's Revenge
