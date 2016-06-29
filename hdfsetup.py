@@ -120,8 +120,10 @@ def get_size_bytes(start_dirpath):
 
 def get_hdf_size_mb(destdir):
     size_bytes = get_size_bytes(destdir)
-    size_mb = size_bytes / (1024 * 1024)
-    return round(size_mb + (size_mb * 0.2))
+    size_mb = size_bytes / (1000 * 1000) # too small when using 1024 * 1024
+    size_mb += (size_mb * 0.3) # leave 30% of hdf free ...
+    size_mb = round(size_mb) #  ... but make it a nice round number
+    return size_mb
 
 class temp_dir:
     def __enter__(self):
