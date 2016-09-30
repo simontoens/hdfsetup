@@ -74,9 +74,12 @@ def augment_c_dir(c_dir_adf, destdir):
             shutil.copy(f, cdir)
     return cdir
 
-def add_startup_sequence(content, destdir):
+def add_startup_sequence(content, destdir, quiet=True):
     sdir = join_mkdir(destdir, "s")
     seq = os.path.join(sdir, "startup-sequence")
+    if not quiet:
+        print "startup-sequence:"
+        print content
     with open(seq, "w") as seq_file:
         seq_file.write(content)
 
@@ -168,7 +171,9 @@ class BatchFileBuilder:
         self._lines.append("%s\n" % line)
 
     def addContent(self, content):
-        self._lines += content.split("\n")
+        for line in content.split("\n"):
+            line = line.replace("df0:", "")
+            self._lines.append(line)
 
     def build(self):
         return "%s\n" % str(self)
@@ -221,12 +226,12 @@ if __name__ == "__main__":
         startSeqBuilder.comment("-------------------------------------------")
         startSeqBuilder.comment()
         startSeqBuilder.info()
-        startSeqBuilder.wait()        
+        startSeqBuilder.wait()
         startSeqBuilder.cd(unpack_root_name)
         startSeqBuilder.comment("start of original startup-sequence")
         with open(os.path.join(unpack_root, "s", "startup-sequence")) as f:
             startSeqBuilder.addContent(f.read())
 
-        add_startup_sequence(startSeqBuilder.build(), tempdir)
+        add_startup_sequence(startSeqBuilder.build(), tempdir, quiet=False)
         augment_c_dir(config.cadf, tempdir)
         pack_hdf(tempdir, config.desthdf, get_hdf_size_mb(tempdir))
